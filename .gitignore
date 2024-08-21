@@ -1,0 +1,46 @@
+### SBT template
+# Simple Build Tool
+# http://www.scala-sbt.org/release/docs/Getting-Started/Directories.html#configuring-version-control
+lib/
+dist/*
+target/
+lib_managed/
+src_managed/
+project/boot/
+project/plugins/project/
+.history
+.cache
+.lib/
+logs
+.env
+.idea/
+*.DS_Store
+
+# sonarqube
+.scannerwork
+
+# tools
+node_modules
+.metals/
+.bsp
+project/project
+
+# metals
+.bloop
+.vscode
+.history
+.metals
+project/metals.sbt
+.ammoniteol
+
+# python3 venv
+.py3venv
+__pycache__
+
+#node_moduels
+**node_modules
+**package-lock.json
+
+#artillery files
+**test-run-report.json
+**test-run-report.json.html
