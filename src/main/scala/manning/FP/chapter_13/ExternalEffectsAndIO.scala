@@ -237,8 +237,8 @@ object IO2aTests {
   val f: Int => IO[Int] = (i: Int) => Return(i)
 
   val g: Int => IO[Int] =
-    List.fill(10000)(f).foldLeft(f) { (a: Function1[Int, IO[Int]], b: Function1[Int, IO[Int]]) =>
-      (x: Int) => IO.suspend(a(x).flatMap(b))
+    List.fill(10000)(f).foldLeft(f) { (a: Function1[Int, IO[Int]], b: Function1[Int, IO[Int]]) => (x: Int) =>
+      IO.suspend(a(x).flatMap(b))
     }
 
   def main(args: Array[String]): Unit = {
@@ -295,8 +295,8 @@ object IO2bTests {
   val f: Int => TailRec[Int] = (i: Int) => Return(i)
 
   val g: Int => TailRec[Int] =
-    List.fill(10000)(f).foldLeft(f) { (a: Function1[Int, TailRec[Int]], b: Function1[Int, TailRec[Int]]) =>
-      (x: Int) => TailRec.suspend(a(x).flatMap(b))
+    List.fill(10000)(f).foldLeft(f) { (a: Function1[Int, TailRec[Int]], b: Function1[Int, TailRec[Int]]) => (x: Int) =>
+      TailRec.suspend(a(x).flatMap(b))
     }
 
   def main(args: Array[String]): Unit = {
@@ -575,7 +575,7 @@ object IO3 {
   val consoleToReader =
     new (Console ~> ConsoleReader) { def apply[A](a: Console[A]) = a.toReader }
 
-  /* Can interpet these as before to convert our `ConsoleIO` to a pure value that does no I/O! */
+  /* Can interpret these as before to convert our `ConsoleIO` to a pure value that does no I/O! */
   def runConsoleReader[A](io: ConsoleIO[A]): ConsoleReader[A] =
     runFree[Console, ConsoleReader, A](io)(consoleToReader)
 

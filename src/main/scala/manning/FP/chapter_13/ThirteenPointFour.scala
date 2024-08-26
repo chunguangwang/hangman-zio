@@ -1,7 +1,7 @@
 package manning.FP.chapter_13
 
 import fpinscala.iomonad.IO3.Console.{printLn, readLn}
-import fpinscala.iomonad.IO3.{Console, Free, runConsole, runConsoleFunction0}
+import fpinscala.iomonad.IO3.{runConsole, runConsoleFunction0, runConsoleReader, Console, Free}
 import manning.FP.chapter_7.Nonblocking.Par
 
 object ThirteenPointFour extends App {
@@ -18,17 +18,18 @@ object ThirteenPointFour extends App {
   @annotation.tailrec
   def step[A](async: Async[A]): Async[A] = async match {
     case FlatMap(FlatMap(x, f), g) => step(x flatMap (a => f(a) flatMap g))
-    case FlatMap(Return(x), f) => step(f(x))
-    case _ => async
+    case FlatMap(Return(x), f)     => step(f(x))
+    case _                         => async
   }
 
   def run[A](async: Async[A]): Par[A] = step(async) match {
-    case Return(a) => Par.unit(a)
+    case Return(a)  => Par.unit(a)
     case Suspend(r) => r
-    case FlatMap(x, f) => x match {
-      case Suspend(r) => Par.flatMap(r)(a => run(f(a)))
-      case _ => sys.error("Impossible; `step` eliminates these cases")
-    }
+    case FlatMap(x, f) =>
+      x match {
+        case Suspend(r) => Par.flatMap(r)(a => run(f(a)))
+        case _          => sys.error("Impossible; `step` eliminates these cases")
+      }
   }
 
   val f1: Free[Console, Option[String]] = for {
@@ -42,4 +43,7 @@ object ThirteenPointFour extends App {
 //    lazy val t: F[B] = forever(a)
 //    a flatMap (_ => t) = new IO[B] {def run = {a.run; forever(a)}.run}
 //  }
+
+  val dd = runConsoleReader(readLn)
+  println(dd.run("ddddd"))
 }
