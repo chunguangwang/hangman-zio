@@ -11,19 +11,21 @@ object ExecutorExample {
     try {
       // Submit a Callable to the secondary executor
       val futureResult: Future[Int] = secondaryExecutor.submit(new Callable[Int] {
-        def call(): Int = {
+        def call() = {
           println(s"Task is running on thread ${Thread.currentThread().getName}")
-          42 // Simulate some computation and return a result
+          val dd = 42 // Simulate some computation and return a result
+          originalExecutor.submit(new Runnable {
+            def run(): Unit = {
+              val result = dd // Blocking call to get the result
+              println(s"Result $result received on thread ${Thread.currentThread().getName}")
+            }
+          })
+          42 * 2
         }
       })
 
       // When the result is ready, submit it back to the original executor
-      originalExecutor.submit(new Runnable {
-        def run(): Unit = {
-          val result = futureResult.get() // Blocking call to get the result
-          println(s"Result $result received on thread ${Thread.currentThread().getName}")
-        }
-      })
+      println(futureResult.get())
     } finally {
       // Shutdown both executor services
       originalExecutor.shutdown()
