@@ -21,10 +21,10 @@ object Par {
   }
 
   def map2[A, B, C](
-      a: Par[A],
-      b: Par[B]
+    a: Par[A],
+    b: Par[B]
   )(
-      f: (A, B) => C
+    f: (A, B) => C
   ): Par[C] = // `map2` doesn't evaluate the call to `f` in a separate logical thread, in accord with our design choice of having `fork` be the sole function in the API for controlling parallelism. We can always do `fork(map2(a,b)(f))` if we want the evaluation of `f` to occur in a separate thread.
     (es: ExecutorService) => {
       val af = a(es)
@@ -35,8 +35,12 @@ object Par {
     }
 
   def fork[A](
-      a: => Par[A]
-  ): Par[A] = // This is the simplest and most natural implementation of `fork`, but there are some problems with it--for one, the outer `Callable` will block waiting for the "inner" task to complete. Since this blocking occupies a thread in our thread pool, or whatever resource backs the `ExecutorService`, this implies that we're losing out on some potential parallelism. Essentially, we're using two threads when one should suffice. This is a symptom of a more serious problem with the implementation, and we will discuss this later in the chapter.
+    a: => Par[A]
+  ): Par[
+    A
+  ] = // This is the simplest and most natural implementation of `fork`, but there are some problems with it--for one,
+    // the outer `Callable` will block waiting for the "inner" task to complete.
+    // Since this blocking occupies a thread in our thread pool, or whatever resource backs the `ExecutorService`, this implies that we're losing out on some potential parallelism. Essentially, we're using two threads when one should suffice. This is a symptom of a more serious problem with the implementation, and we will discuss this later in the chapter.
     es =>
       es.submit(new Callable[A] {
         def call = a(es).get
@@ -83,9 +87,7 @@ object Par {
   def parFilter[A](l: List[A])(f: A => Boolean): Par[List[A]] = {
     val pars: List[Par[List[A]]] =
       l map (asyncF((a: A) => if (f(a)) List(a) else List()))
-    map(sequence(pars))(x =>
-      x.flatten
-    ) // convenience method on `List` for concatenating a list of lists
+    map(sequence(pars))(x => x.flatten) // convenience method on `List` for concatenating a list of lists
   }
 
   def equal[A](e: ExecutorService)(p: Par[A], p2: Par[A]): Boolean =
@@ -107,7 +109,7 @@ object Par {
     }
 
   def choiceViaChoiceN[A](
-      a: Par[Boolean]
+    a: Par[Boolean]
   )(ifTrue: Par[A], ifFalse: Par[A]): Par[A] =
     choiceN(map(a)(b => if (b) 0 else 1))(List(ifTrue, ifFalse))
 
@@ -156,8 +158,9 @@ object Par {
 object Examples extends App {
   import Par._
   def sum(
-      ints: IndexedSeq[Par[Int]]
-  ): Par[Int] = // `IndexedSeq` is a superclass of random-access sequences like `Vector` in the standard library. Unlike lists, these sequences provide an efficient `splitAt` method for dividing them into two parts at a particular index.
+    ints: IndexedSeq[Par[Int]]
+  ): Par[Int] = // `IndexedSeq` is a superclass of random-access sequences like `Vector` in the standard library.
+    // Unlike lists, these sequences provide an efficient `splitAt` method for dividing them into two parts at a particular index.
     if (ints.size <= 1)
       ints.headOption getOrElse unit(
         0
@@ -186,6 +189,6 @@ object Examples extends App {
   val num = List(3, 4)
   num match {
     case num +: tail => println(tail)
-    case _ => println("error")
+    case _           => println("error")
   }
 }
