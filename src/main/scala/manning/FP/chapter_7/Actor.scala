@@ -1,24 +1,28 @@
 package manning.FP.chapter_7
 import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
-import java.util.concurrent.{Callable, ExecutorService, Executors, ThreadPoolExecutor, atomic}
+import java.util.concurrent.{atomic, Callable, ExecutorService, Executors, ThreadPoolExecutor}
 import annotation.tailrec
 
-/**
- * Processes messages of type `A`, once at a time. Messages are submitted to the actor with the method `!`.
- * Processing is typically performed asynchronously, this is controlled by the provided `strategy`.
- *
- * Memory consistency guarantee: when each message is processed by the `handler`, any memory that it mutates is guaranteed to be visible
- * by the `handler` when it processes the next message, even if the `strategy` runs the invocations of `handler`
- * on separate threads. This is achieved because the `Actor` reads a volatile memory location before entering its event loop, and wirtes
- * to the same location before suspending
- *
- * @see scalaz.concurrent.Promise for a use case.
- *
- * @param handler The message handler
- * @param onError Exception handler, called if the message handler throws any `Throwable`.
- * @oaram strategy Execution strategy, for example, a strategy that is backed by an `ExecutorService`
- * @tparam A The type of message accepted by this actor
- */
+/** Processes messages of type `A`, once at a time. Messages are submitted to the actor with the method `!`. Processing
+  * is typically performed asynchronously, this is controlled by the provided `strategy`.
+  *
+  * Memory consistency guarantee: when each message is processed by the `handler`, any memory that it mutates is
+  * guaranteed to be visible by the `handler` when it processes the next message, even if the `strategy` runs the
+  * invocations of `handler` on separate threads. This is achieved because the `Actor` reads a volatile memory location
+  * before entering its event loop, and wirtes to the same location before suspending
+  *
+  * @see
+  *   scalaz.concurrent.Promise for a use case.
+  *
+  * @param handler
+  *   The message handler
+  * @param onError
+  *   Exception handler, called if the message handler throws any `Throwable`.
+  * @oaram
+  *   strategy Execution strategy, for example, a strategy that is backed by an `ExecutorService`
+  * @tparam A
+  *   The type of message accepted by this actor
+  */
 final class Actor[A](strategy: Strategy)(handler: A => Unit, onError: Throwable => Unit = throw _) {
   self =>
   private class Node[A](var a: A = null.asInstanceOf[A]) extends AtomicReference[Node[A]]
@@ -33,24 +37,23 @@ final class Actor[A](strategy: Strategy)(handler: A => Unit, onError: Throwable 
     dd
   })
 
-  /**Alias for `apply` */
+  /** Alias for `apply` */
   def !(a: A): Unit = {
     val n = new Node(a)
-    head.getAndSet(n).lazySet(n)
+    val dd = head.getAndSet(n)
+    dd.lazySet(n)
     println(a)
-//    trySchedule
+    trySchedule
   }
 
-  private def trySchedule(): Unit = {
+  private def trySchedule(): Unit =
     if (suspended.compareAndSet(1, 0)) schedule()
-  }
 
   def contramap[B](f: B => A): Actor[B] =
-    new Actor[B](strategy)((b: B) => (this ! f(b)), onError)
+    new Actor[B](strategy)((b: B) => this ! f(b), onError)
 
-  private def schedule(): () => Unit = {
+  private def schedule(): () => Unit =
     strategy(act())
-  }
 
   private def act(): Unit = {
     val t = tail.get
@@ -69,48 +72,48 @@ final class Actor[A](strategy: Strategy)(handler: A => Unit, onError: Throwable 
   private def batchHandle(t: Actor.this.Node[A], i: Int): Node[A] = {
     val n: Node[A] = t.get // Matryoshka Doll
     if (n ne null) {
-      try {
+      try
         handler(n.a)
-      } catch {
+      catch {
         case ex: Throwable => onError(ex)
       }
-      if (i > 0) batchHandle(n, i - 1) else n
-    } else t
+      if (i > 0)
+        batchHandle(n, i - 1)
+      else
+        n
+    } else
+      t
   }
 }
 
 object Actor {
 
   /** Create an `Actor` backed by the given `ExecutorService`. */
-  def apply[A](es: ExecutorService)(handler: A => Unit, onError: Throwable => Unit = throw(_)): Actor[A] =
+  def apply[A](es: ExecutorService)(handler: A => Unit, onError: Throwable => Unit = throw _): Actor[A] =
     new Actor(Strategy.fromExecutorService(es))(handler, onError)
 }
 
-/**
- * Provides a function for evaluating expressions, possibly asynchronously.
- * The `apply` function should typically begin evaluating its argument
- * immediately. The returned thunk can be used to block until the resulting `A`
- * is available
- */
+/** Provides a function for evaluating expressions, possibly asynchronously. The `apply` function should typically begin
+  * evaluating its argument immediately. The returned thunk can be used to block until the resulting `A` is available
+  */
 trait Strategy {
   def apply[A](a: => A): () => A
 }
 
 object Strategy {
-  /**
-   * We can create a `Strategy` from any `ExecutorService`. It's a little more
-   * convenient thant submitting `Callable` objects directly.
-   */
+
+  /** We can create a `Strategy` from any `ExecutorService`. It's a little more convenient thant submitting `Callable`
+    * objects directly.
+    */
   def fromExecutorService(es: ExecutorService): Strategy = new Strategy {
     def apply[A](a: => A): () => A = {
-      val f = es.submit { new Callable[A] { def call = a } }
+      val f = es.submit(new Callable[A] { def call = a })
       () => f.get
     }
   }
 
-  /**
-   * A `Strategy` which begins executing its argument immediately in the calling thread.
-   */
+  /** A `Strategy` which begins executing its argument immediately in the calling thread.
+    */
   def sequential: Strategy = new Strategy {
     override def apply[A](a: => A): () => A = {
       val r = a
