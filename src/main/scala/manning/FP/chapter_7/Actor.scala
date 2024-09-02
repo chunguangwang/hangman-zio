@@ -42,7 +42,6 @@ final class Actor[A](strategy: Strategy)(handler: A => Unit, onError: Throwable 
     val n = new Node(a)
     val dd = head.getAndSet(n)
     dd.lazySet(n)
-    println(a)
     trySchedule
   }
 
@@ -123,8 +122,29 @@ object Strategy {
 }
 
 object Ex extends App {
-  val ac = Actor(Executors.newSingleThreadExecutor())((x: Int) => (), (e: Throwable) => throw e)
-  ac ! 5
-  ac ! 6
+  val es = Executors.newFixedThreadPool(3)
+  val ac = Actor(es)(
+    (x: Int) => println("current thread: " + Thread.currentThread().getName + " " + x),
+    (e: Throwable) => throw e
+  )
+  for (i <- 1 to 3_000)
+    ac ! i
   println(5 - 4)
+
+  import java.util.concurrent.TimeUnit
+
+  es.shutdown
+  try // Wait for existing tasks to complete
+    if (!es.awaitTermination(60, TimeUnit.SECONDS)) { // Force shutdown if tasks are not completed within the timeout
+      es.shutdownNow
+      // Wait again for tasks to respond to being cancelled
+      if (!es.awaitTermination(60, TimeUnit.SECONDS)) System.err.println("ExecutorService did not terminate")
+    }
+  catch {
+    case e: InterruptedException =>
+      // Re-cancel if current thread also interrupted
+      es.shutdownNow
+      // Preserve interrupt status
+      Thread.currentThread.interrupt()
+  }
 }
