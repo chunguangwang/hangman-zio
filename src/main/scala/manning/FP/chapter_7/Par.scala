@@ -8,7 +8,7 @@ object Par {
 
   def run[A](s: ExecutorService)(a: Par[A]): Future[A] = a(s)
 
-  def unit[A](a: A): Par[A] = (es: ExecutorService) =>
+  def unit[A](a: A): Par[A] = _ =>
     UnitFuture(
       a
     ) // `unit` is represented as a function that returns a `UnitFuture`, which is a simple implementation of `Future` that just wraps a constant value. It doesn't use the `ExecutorService` at all. It's always done and can't be cancelled. Its `get` method simply returns the value that we gave it.
@@ -31,7 +31,8 @@ object Par {
       val bf = b(es)
       UnitFuture(
         f(af.get, bf.get)
-      ) // This implementation of `map2` does _not_ respect timeouts. It simply passes the `ExecutorService` on to both `Par` values, waits for the results of the Futures `af` and `bf`, applies `f` to them, and wraps them in a `UnitFuture`. In order to respect timeouts, we'd need a new `Future` implementation that records the amount of time spent evaluating `af`, then subtracts that time from the available time allocated for evaluating `bf`.
+      ) // This implementation of `map2` does _not_ respect timeouts. It simply passes the `ExecutorService` on to both `Par` values, waits for the results of the Futures `af` and `bf`, applies `f` to them, and wraps them in a `UnitFuture`.
+      // In order to respect timeouts, we'd need a new `Future` implementation that records the amount of time spent evaluating `af`, then subtracts that time from the available time allocated for evaluating `bf`.
     }
 
   def fork[A](
@@ -40,7 +41,10 @@ object Par {
     A
   ] = // This is the simplest and most natural implementation of `fork`, but there are some problems with it--for one,
     // the outer `Callable` will block waiting for the "inner" task to complete.
-    // Since this blocking occupies a thread in our thread pool, or whatever resource backs the `ExecutorService`, this implies that we're losing out on some potential parallelism. Essentially, we're using two threads when one should suffice. This is a symptom of a more serious problem with the implementation, and we will discuss this later in the chapter.
+    // Since this blocking occupies a thread in our thread pool, or whatever resource backs the `ExecutorService`,
+    // this implies that we're losing out on some potential parallelism.
+    // Essentially, we're using two threads when one should suffice.
+    // This is a symptom of a more serious problem with the implementation, and we will discuss this later in the chapter.
     es =>
       es.submit(new Callable[A] {
         def call = a(es).get
@@ -82,7 +86,7 @@ object Par {
   }
 
   def sequence[A](as: List[Par[A]]): Par[List[A]] =
-    map(sequenceBalanced(as.toIndexedSeq))(_.toList)
+    map(sequenceBalanced(as.toIndexedSeq))(a => a.toList)
 
   def parFilter[A](l: List[A])(f: A => Boolean): Par[List[A]] = {
     val pars: List[Par[List[A]]] =
@@ -148,9 +152,9 @@ object Par {
   def flatMapViaJoin[A, B](p: Par[A])(f: A => Par[B]): Par[B] =
     join(map(p)(f))
   /* Gives us infix syntax for `Par`. */
-  implicit def toParOps[A](p: Par[A]): ParOps[A] = new ParOps(p)
+//  implicit def toParOps[A](p: Par[A]): ParOps[A] = new ParOps(p)
 
-  class ParOps[A](p: Par[A]) {
+  implicit class ParOps[A](p: Par[A]) {
     def run(es: ExecutorService) = Par.run(es)(p)
   }
 }

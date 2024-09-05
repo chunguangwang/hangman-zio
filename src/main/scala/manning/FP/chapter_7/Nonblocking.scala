@@ -68,7 +68,7 @@ object Nonblocking extends App {
     def eval(es: ExecutorService)(r: => Unit): Unit =
       es.submit(new Callable[Unit] { def call = r })
 
-    def map2[A, B, C](p: Par[A], p2: Par[B])(f: (A, B) => C): Par[C] =
+    def map2[A, B, C](p1: Par[A], p2: Par[B])(f: (A, B) => C): Par[C] =
       es =>
         (cb: C => Unit) => {
           var ar: Option[A] = None
@@ -84,7 +84,7 @@ object Nonblocking extends App {
               if (ar.isDefined) eval(es)(cb(f(ar.get, b)))
               else br = Some(b)
           }
-          p(es)(a => combiner ! Left(a))
+          p1(es)(a => combiner ! Left(a))
           p2(es)(b => combiner ! Right(b))
         }
 
