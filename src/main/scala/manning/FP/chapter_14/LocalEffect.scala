@@ -26,7 +26,8 @@ object LocalEffect extends App {
       }
     }
     def runST[A](st: RunnableST[A]): A =
-      st.apply[Unit].run(())._1
+      st.apply[Int].run(1)._1
+    // st.apply[Unit].run(())._1
   }
 
   sealed trait STRef[S, A] {
@@ -53,11 +54,11 @@ object LocalEffect extends App {
   val p = new RunnableST[(Int, Int)] {
     def apply[S]: ST[S, (Int, Int)] = for {
       r1 <- STRef(1)
-      r2 <- STRef(1)
+      r2 <- STRef(2)
       x <- r1.read
       y <- r2.read
-      _ <- r1.write(y + 1)
-      _ <- r2.write(x + 1)
+      x1 <- r1.write(y + 1)
+      y1 <- r2.write(x + 1)
       a <- r1.read
       b <- r2.read
     } yield (a, b)
