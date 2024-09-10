@@ -68,6 +68,7 @@ object LocalEffect extends App {
 
   sealed abstract class STArray[S, A](implicit manifest: Manifest[A]) {
     protected def value: Array[A]
+
     def size: ST[S, Int] = ST(value.size)
 
     def write(i: Int, a: A): ST[S, Unit] = new ST[S, Unit] {
@@ -76,8 +77,91 @@ object LocalEffect extends App {
         ((), s)
       }
     }
+
     def read(i: Int): ST[S, A] = ST(value(i))
+
     def freeze: ST[S, List[A]] = ST(value.toList)
+
+    // For example, xs.fill(Map(0->"a", 2->"b")) should write the value "a" at index 0 in the array xs and "b" at index 2.
+    // Use the existing combinators to write your implementation.
+    def fill(xs: Map[Int, A]): ST[S, Unit] =
+      xs.foldRight(ST[S, Unit](())) { case ((k, v), st) =>
+        st flatMap (_ => write(k, v))
+      }
+
+    def fromList[S, A: Manifest](xs: List[A]): ST[S, STArray[S, A]] =
+      ST(new STArray[S, A] {
+        lazy val value = xs.toArray
+      })
+
+    /*
+    def quicksort(xs: List[Int]): List[Int] =
+    if (xs.isEmpty) xs
+    else {
+      val arr = xs.toArray
+        def swap(x: Int, y: Int) = {
+          val tmp = arr(x)
+          arr(x) = arr(y)
+          arr(y) = tmp
+        }
+        def partition(n: Int, r: Int, pivot: Int) = {
+          val pivotVal = arr(pivot)
+          swap(pivot, r)
+          var j = n
+          for (i <- n until r) if (arr(i) < pivotVal) {
+            swap(i, j)
+            j += 1
+          }
+          swap(j, r)
+          j
+        }
+
+        def qs(n: Int, r: Int): Unit = if (n < r) {
+          val pi = partition(n, r, n + (n - r) / 2)
+          qs(n, pi - 1)
+          qs(pi + 1, r)
+        }
+        qs(0, arr.length - 1)
+        arr.toList
+      }
+     */
+    def swap(i: Int, j: Int): ST[S, Unit] = for {
+      x <- read(i)
+      y <- read(j)
+      _ <- write(i, y)
+      _ <- write(j, x)
+    } yield ()
+
+    // An action that does nothing
+    def noop = ST[S, Unit](())
+    def partition(a: STArray[S, Int], l: Int, r: Int, pivot: Int): ST[S, Int] =
+      for {
+        vp <- a.read(pivot)
+        _ <- a.swap(pivot, r)
+        j <- STRef(l)
+        _ <- (l until r).foldLeft(noop)((s, i) =>
+          for {
+            _ <- s
+            vi <- a.read(i)
+            _ <-
+              if (vi < vp) for {
+                vj <- j.read
+                _ <- a.swap(i, vj)
+                _ <- j.write(vj + 1)
+              } yield ()
+              else noop
+          } yield ()
+        )
+        x <- j.read
+        _ <- a.swap(x, r)
+      } yield x
+
+    def qs(a: STArray[S, Int], l: Int, r: Int): ST[S, Unit] = if (l < r) for {
+      pi <- partition(a, l, r, l + (r - l) / 2)
+      _ <- qs(a, l, pi - 1)
+      _ <- qs(a, pi + 1, r)
+    } yield ()
+    else noop
   }
   object STArray {
     def apply[S, A: Manifest](sz: Int, v: A): ST[S, STArray[S, A]] = ST(
