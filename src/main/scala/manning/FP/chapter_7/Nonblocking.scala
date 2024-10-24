@@ -214,8 +214,8 @@ object Nonblocking extends App {
   }
 
   val p = parMap(List.range(1, 100))(math.sqrt(_))
-  val es = Executors.newFixedThreadPool(2)
-  val x = Par.run(Executors.newFixedThreadPool(2))(p)
+  val es = Executors.newFixedThreadPool(1)
+  val x = Par.run(Executors.newFixedThreadPool(1))(p)
   es.shutdownNow()
   println(x)
 }

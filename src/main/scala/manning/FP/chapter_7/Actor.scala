@@ -9,7 +9,7 @@ import annotation.tailrec
   * Memory consistency guarantee: when each message is processed by the `handler`, any memory that it mutates is
   * guaranteed to be visible by the `handler` when it processes the next message, even if the `strategy` runs the
   * invocations of `handler` on separate threads. This is achieved because the `Actor` reads a volatile memory location
-  * before entering its event loop, and wirtes to the same location before suspending
+  * before entering its event loop, and writes to the same location before suspending
   *
   * @see
   *   scalaz.concurrent.Promise for a use case.

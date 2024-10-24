@@ -47,7 +47,12 @@ object Par {
     // This is a symptom of a more serious problem with the implementation, and we will discuss this later in the chapter.
     es =>
       es.submit(new Callable[A] {
-        def call = a(es).get
+        def call ={
+          println(Thread.currentThread())
+          val bb: A = a(es).get
+          println(Thread.currentThread() + "   " + bb)
+          bb
+        }
       })
 
   def lazyUnit[A](a: => A): Par[A] = fork(unit(a))
@@ -58,7 +63,7 @@ object Par {
   def map[A, B](pa: Par[A])(f: A => B): Par[B] =
     map2(pa, unit(()))((a, _) => f(a))
 
-  def sortPar(parList: Par[List[Int]]) = map(parList)(_.sorted)
+  def sortPar(parList: Par[List[Int]]) = map(parList)(a => a.sorted)
 
   def sequence_simple[A](l: List[Par[A]]): Par[List[A]] =
     l.foldRight[Par[List[A]]](unit(List()))((h, t) => map2(h, t)(_ :: _))
@@ -179,7 +184,7 @@ object Examples extends App {
     }
 
   println(
-    sum(IndexedSeq[Par[Int]](unit(1), unit(3), unit(1), unit(-5)))
+    sum(IndexedSeq[Par[Int]](unit(1), unit(1), unit(1), unit(1)))
       .run(Executors.newCachedThreadPool())
       .get
   )
