@@ -8,7 +8,7 @@ import java.io.FileReader
 import java.sql.{Connection, DriverManager, ResultSet}
 object DatabricksJDBCExample {
   def main(args: Array[String]): Unit = {
-    
+
     val url = args(2)
     args.foreach(println)
     val driver = "com.databricks.client.jdbc.Driver"
@@ -17,7 +17,7 @@ object DatabricksJDBCExample {
     val csvReader = new CSVReader(new FileReader(args(4)))
     val rows = csvReader.readAll().asScala
     csvReader.close()
-    val accountIds = rows.tail.map(row => row(3)) // Dropping the header ro
+    val accountIds = rows.tail.map(row => row(3)).distinct // Dropping the header ro
     val accountIdsString = accountIds.map(id => s"'$id'").mkString(", ")
 
     // Query
@@ -51,7 +51,8 @@ object DatabricksJDBCExample {
 
       val json = Json.toJson(results)
       println(Json.prettyPrint(json)) // Print JSON prettily
-      println(results.size)
+      println("number of accountIds with timeouts " + accountIds.size)
+      println("recovered number of accountIds " + results.size)
 
       resultSet.close()
       statement.close()
