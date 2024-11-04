@@ -9,12 +9,12 @@ import java.sql.{Connection, DriverManager, ResultSet}
 object DatabricksJDBCExample {
   def main(args: Array[String]): Unit = {
     
-    val url =
-      "jdbc:databricks://dss-dataeng-prod-us-east-1.cloud.databricks.com:443/default;transportMode=http;ssl=1;httpPath=sql/protocolv1/o/7176722153497673/0422-191909-3nnce063;AuthMech=3;UID=token;PWD=<your-personal-access-token>"
+    val url = args(2)
+    args.foreach(println)
     val driver = "com.databricks.client.jdbc.Driver"
     val username = "token"
-    val password = "dapi8d42d30bc2b961dc9e543c596f36d0fa"
-    val csvReader = new CSVReader(new FileReader("/Users/chunguang.wang/Downloads/2024-09-15_Glo_signup_dry_run_comcast_timeouts.csv"))
+    val password = args(3)
+    val csvReader = new CSVReader(new FileReader(args(4)))
     val rows = csvReader.readAll().asScala
     csvReader.close()
     val accountIds = rows.tail.map(row => row(3)) // Dropping the header ro
