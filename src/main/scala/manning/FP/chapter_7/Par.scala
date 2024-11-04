@@ -184,7 +184,7 @@ object Examples extends App {
     }
 
   println(
-    sum(IndexedSeq[Par[Int]](unit(1), unit(1), unit(1), unit(1)))
+    sum(IndexedSeq[Par[Int]](unit(1), unit(100), unit(2), unit(200)))
       .run(Executors.newCachedThreadPool())
       .get
   )

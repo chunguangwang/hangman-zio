@@ -18,6 +18,18 @@ lazy val settings = Seq(
     "org.http4s" %% "http4s-ember-server" % Http4sVersion,
     "org.http4s" %% "http4s-ember-client" % Http4sVersion
   ),
+  libraryDependencies ++= Seq(
+    "org.apache.spark" %% "spark-core" % "3.2.2",
+    "org.apache.spark" %% "spark-sql" % "3.2.2",
+    "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.13.0", // Updated to a version compatible with Scala 2.13
+    "com.databricks" % "databricks-jdbc" % "2.6.36",
+    "io.delta" %% "delta-core" % "2.4.0",
+    "org.apache.hadoop" % "hadoop-aws" % "3.2.0",
+    "com.amazonaws" % "aws-java-sdk-bundle" % "1.11.903",
+    "org.apache.hadoop" % "hadoop-common" % "3.2.0",
+    "com.typesafe.play" %% "play-json" % "2.9.2",
+    "com.opencsv" % "opencsv" % "5.5.2"
+  ),
   libraryDependencies += "dev.zio" %% "zio" % "2.1.3",
   libraryDependencies ++= Seq(
     "org.typelevel" %% "log4cats-core" % "2.1.1", // Only if you want to Support Any Backend
