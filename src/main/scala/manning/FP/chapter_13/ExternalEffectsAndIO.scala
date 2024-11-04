@@ -192,6 +192,19 @@ object IO2a {
     Suspend(() => Return(println(s)))
 
   val p = IO.forever(printLine("Still going..."))
+  /*       = {
+            val t = forever(printLine("Still going..."))
+            printLine("Still going ...") flatMap (_ => t)
+  }
+  = {   val t = forever(printLine("Still going..."))
+             printLine("Still going ...") flatMap (_ => forever(printLine("Still going...")))
+  }
+  = {val t = forever(printLine("Still going..."))
+               printLine("Still going ...") flatMap (_ => {
+               val t = forever(printLine("Still going..."))
+               printLine("Still going ...") flatMap (_ => t)
+             })
+   */
 
   val actions: Stream[IO[Unit]] =
     Stream.fill(100000)(printLine("Still going..."))
