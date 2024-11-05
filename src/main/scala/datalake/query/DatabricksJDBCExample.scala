@@ -1,10 +1,11 @@
 package datalake.query
 
 import com.opencsv.CSVReader
-import scala.collection.JavaConverters._
-import play.api.libs.json.{JsString, Json}
 
-import java.io.FileReader
+import scala.collection.JavaConverters._
+import play.api.libs.json.{JsString, JsValue, Json}
+
+import java.io.{BufferedWriter, FileReader, FileWriter}
 import java.sql.{Connection, DriverManager, ResultSet}
 object DatabricksJDBCExample {
   def main(args: Array[String]): Unit = {
@@ -45,15 +46,59 @@ object DatabricksJDBCExample {
       val metaData = resultSet.getMetaData
       val columns = metaData.getColumnCount
 
-      val results = Iterator.continually((resultSet, resultSet.next())).takeWhile(_._2).map { case (rs, _) =>
-        (1 to columns).map(i => metaData.getColumnName(i) -> JsString(rs.getString(i))).toMap
-      }.toList
+      val results = Iterator
+        .continually((resultSet, resultSet.next()))
+        .takeWhile(_._2)
+        .map { case (rs, _) =>
+          (1 to columns).map(i => metaData.getColumnName(i) -> JsString(rs.getString(i))).toMap
+        }
+        .toList
 
       val json = Json.toJson(results)
       println(Json.prettyPrint(json)) // Print JSON prettily
       println("number of accountIds with timeouts " + accountIds.size)
-      println("recovered number of accountIds " + results.size)
 
+      // Convert JSON to a list of maps
+      val resultsList: List[Map[String, JsValue]] = Json.fromJson[List[Map[String, JsValue]]](json).get
+
+      // Deduplicate based on invoice.accountId
+      val deduplicatedResultsList = resultsList.distinctBy { element =>
+        val invoiceField = element("invoice").toString()
+        val cleanedInvoiceField = invoiceField
+          .replace("\\\"", "\"")
+          .replace("\\n", "")
+          .replace("\\r", "")
+          .replace("\"{", "{")
+          .replace("}\"", "}")
+
+        // Extract accountId using substring method
+        val accountIdStart = cleanedInvoiceField.indexOf("\"accountId\":\"") + 13
+        val accountIdEnd = cleanedInvoiceField.indexOf("\"", accountIdStart)
+        val accountId = cleanedInvoiceField.substring(accountIdStart, accountIdEnd)
+
+        accountId
+      }
+      println("recovered number of accountIds " + deduplicatedResultsList.size)
+
+      // Extract headers
+      val headers = deduplicatedResultsList.head.keys.toList
+
+      // Write to CSV
+      val csvFile = "output.csv"
+      val writer = new BufferedWriter(new FileWriter(csvFile))
+
+      // Write headers
+      writer.write(headers.mkString(","))
+      writer.newLine()
+
+      // Write rows
+      deduplicatedResultsList.foreach { row =>
+        val values = headers.map(header => row(header).as[String])
+        writer.write(values.mkString(","))
+        writer.newLine()
+      }
+
+      writer.close()
       resultSet.close()
       statement.close()
       connection.close()
@@ -63,6 +108,3 @@ object DatabricksJDBCExample {
 
   }
 }
-
-
-
