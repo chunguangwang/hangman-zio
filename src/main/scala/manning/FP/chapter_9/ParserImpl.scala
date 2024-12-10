@@ -15,17 +15,20 @@ There’s an idea here that a type is given meaning based on its relationship to
   See the chapter notes for more on this con- nection if you’re interested.
  */
 /*
+
  string(s)—Recognizes and returns a single String
+ regex(s)—Recognizes a regular expression s
  slice(p)—Returns the portion of input inspected by p if successful
- succeed(a)—Always succeeds with the value a
- map(p)(f)—Applies the function f to the result of p, if successful
- product(p1,p2)—Sequences two parsers, running p1 and then p2, and returns
-the pair of their results if both succeed
- or(p1,p2)—Chooses between two parsers, first attempting p1, and then p2 if
-p1 fails
+ label(e)(p)—In the event of failure, replaces the assigned message with e
+ scope(e)(p)—In the event of failure, adds e to the error stack returned by p
+ flatMap(p)(f)—Runs a parser, and then uses its result to select a second
+parser to run in sequence
+ attempt(p)—Delays committing to p until after it succeeds
+ or(p1,p2)—Chooses between two parsers, first attempting p1, and then p2 if p1
+fails in an uncommitted state on the input
  */
 object ParserImpl extends App {
-  trait Parser[ParseError, Parser[+_]] { self =>
+  trait Parsers[ParseError, Parser[+_]] { self =>
     def run[A](p: Parser[A])(input: String): Either[ParseError, A]
     def char(c: Char): Parser[Char] = string(c.toString).map(_.charAt(0))
     def or[A](s1: => Parser[A], s2: Parser[A]): Parser[A]
@@ -141,7 +144,82 @@ object ParserImpl extends App {
       _ <- listOfN(n, char('a'))
     } yield n
      */
-    implicit def regex(r: Regex): Parser[String]
+    // The intended meaning of label is that if p fails,
+    // its ParseError will somehow incorpo- rate msg
+    def label[A](msg: String)(p: Parser[A]): Parser[A]
+    case class Location(input: String, offset: Int = 0) {
+      lazy val line = input.slice(0, offset + 1).count(_ == '\n') + 1
+      lazy val col = input.slice(0, offset + 1).lastIndexOf('\n') match {
+        case -1        => offset + 1
+        case lineStart => offset - lineStart
+      }
+    }
+    def errorLocation(e: ParseError): Location
+    def errorMessage(e: ParseError): String
+
+    def scope[A](msg: String)(p: Parser[A]): Parser[A]
+
+    /*
+    Is the label combinator sufficient for all our error-reporting needs? Not quite. Let’s look at an example:
+    val p = label("first magic word")("abra") ** " ".many **
+            label("second magic word")("cadabra")
+    Skip whitespace
+    What sort of ParseError would we like to get back from run(p)("abra cAdabra")?
+    (Note the capital A in cAdabra.)
+    The immediate cause is that capital 'A' instead of the expected lowercase 'a'.
+     */
+    trait Parser[+A] {
+      def run(input: String): Either[ParseError, A]
+    }
+    implicit def regex(r: Regex): Parser[String] = new Parser[String] {
+      def run(input: String): Either[ParseError, String] =
+        r.findPrefixOf(input) match {
+          case Some(matched) => Right(matched)
+          case None          => Left(ParseError(List((Location(input), s"Expected pattern: ${r.regex}"))))
+        }
+    }
+    case class ParseError(stack: List[(Location, String)])
+
+    /*
+    Let’s look at a more concrete motivating example:
+    val spaces = " ".many
+    val p1 = scope("magic spell") {
+              "abra" ** spaces ** "cadabra"
+            }
+    val p2 = scope("gibberish") { "abba" ** spaces ** "babba"
+    }
+    val p = p1 or p2
+    What ParseError would we like to get back from run(p)("abra cAdabra")?
+    (Again, note the capital A in cAdabra.)
+    Both branches of the or will produce errors on the input.
+
+    One common solution to this problem is to have all parsers commit by default
+    if they examine at least one character to produce a result.12
+    We then introduce a combinator, attempt, which delays committing to a parse:
+     */
+
+    def attempt[A](p: Parser[A]): Parser[A]
+    /*
+    It should satisfy something like this:
+      attempt(p flatMap (_ => fail)) or p2 == p2
+    Here fail is a parser that always fails (we could introduce this as a primitive combinator if we like).
+
+    The attempt combinator can be used whenever there’s ambiguity in the grammar
+    and multiple tokens may have to be examined
+    before the ambiguity can be resolved and parsing can commit to a single branch.
+    As an example, we might write this:
+    (attempt("abra" ** spaces ** "abra") ** "cadabra") or (
+             "abra" ** spaces "cadabra!")
+     */
+
+    /**
+     * In the event of an error, returns the error that occurred after consuming
+     * the most number of characters.
+     */
+    def furthest[A](p: Parser[A]): Parser[A]
+
+    /** In the event of an error, returns the error that occurred most recently. */
+    def latest[A](p: Parser[A]): Parser[A]
 
     implicit def string(s: String): Parser[String]
     implicit def operators[A](p: Parser[A]): ParserOps[A] = ParserOps[A](p)
@@ -161,4 +239,13 @@ object ParserImpl extends App {
       def flatMap[B](f: A => Parser[B]): Parser[B] = self.flatMap(p)(f)
     }
   }
+
+  /*
+  Our JSON parser doesn’t need to know the internal details of how parsers are represented.
+  We can simply write a function that produces a JSON parser using only the set of primitives we’ve defined and any derived combinators.
+  That is, for some JSON parse result type (we’ll explain the JSON format and the parse result type shortly),
+  we’ll write a function like this:
+  def jsonParser[ParseError, Parser[+_]](P: Parsers[ParseError, Parser]): Parser[JSON]
+   */
+
 }
