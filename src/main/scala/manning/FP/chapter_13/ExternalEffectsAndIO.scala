@@ -9,7 +9,6 @@ import language.postfixOps
 
 object IO0 {
   /*
-
 Our first attempt at data type for representing computations that
 may perform I/O. Has a simple 'interpreter' baked in--the `run`
 function, which just returns `Unit`.
@@ -158,7 +157,7 @@ q
   )
 }
 
-object IO2a {
+object IO2a extends App {
 
   /*
   The previous IO representation overflows the stack for some programs.
@@ -226,6 +225,22 @@ object IO2a {
         case FlatMap(y, g) => run(y flatMap (a => g(a) flatMap f))
       }
   }
+
+  def skip[A](a: A): Unit = () // used in `foreachM` and `replicateM_`
+
+  def f = (x: Int) => x
+
+  val g = List.fill(100000)(f)
+  val dd = g.map(x => x(3))
+  val cc = g.foldLeft(f)(_ compose _)
+
+  val fIO: Int => IO[Int] = (x: Int) => Return(x)
+  val gIO: Int => IO[Int] =
+    List.fill(100000)(fIO).foldLeft(fIO) { (a: Function1[Int, IO[Int]], b: Function1[Int, IO[Int]]) => (x: Int) =>
+      IO.suspend(a(x).flatMap(b))
+    }
+  println(run(gIO(0)))
+  println(run(gIO(42)))
 }
 
 object IO2aTests {
