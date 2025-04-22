@@ -370,7 +370,7 @@ object IO2c {
 
   def run[A](async: Async[A]): Par[A] = step(async) match {
     case Return(a)  => Par.unit(a)
-    case Suspend(r) => r
+    case Suspend(r) => Par.flatMap(r)(a => run(a)) // run the `Par` in the current thread
     case FlatMap(x, f) =>
       x match {
         case Suspend(r) => Par.flatMap(r)(a => run(f(a)))
