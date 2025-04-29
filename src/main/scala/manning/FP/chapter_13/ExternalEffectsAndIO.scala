@@ -1,5 +1,6 @@
 package fpinscala.iomonad
 
+import fpinscala.iomonad.IO3.Console.ConsoleIO
 import manning.FP.chapter_13.Monad
 import manning.FP.chapter_7.Nonblocking.Par
 
@@ -334,7 +335,7 @@ object IO2bTests {
   }
 }
 
-object IO2c {
+object IO2c extends App {
 
   /*
    * We've solved our first problem of ensuring stack safety, but we're still
@@ -369,20 +370,36 @@ object IO2c {
   }
 
   def run[A](async: Async[A]): Par[A] = step(async) match {
-    case Return(a)  => Par.unit(a)
-    case Suspend(r) => Par.flatMap(r)(a => run(a)) // run the `Par` in the current thread
+    case Return(a)                 => Par.unit(a)
+    case Suspend(r) => r // run the `Par` in the current thread
     case FlatMap(x, f) =>
       x match {
         case Suspend(r) => Par.flatMap(r)(a => run(f(a)))
-        case _          => sys.error("Impossible, since `step` eliminates these cases")
+        case _                         => sys.error("Impossible, since `step` eliminates these cases")
       }
   }
   // The fact that `run` only uses the `unit` and `flatMap` functions of
   // `Par` is a clue that choosing `Par` was too specific of a choice,
   // this interpreter could be generalized to work with any monad.
+
+  // Example Async computation
+  val asyncComputation: Async[Int] = FlatMap(
+    Suspend(Par.unit(42)),
+    (x: Int) => Return(x + 1)
+  )
+
+  // Using the run method
+  val executorService = java.util.concurrent.Executors.newFixedThreadPool(2)
+  val result: Par[Int] = run(asyncComputation)
+
+  // Running the Par to get the result
+  val finalResult = Par.run(executorService)(result)
+  println(s"Result: $finalResult")
+
+  executorService.shutdown()
 }
 
-object IO3 {
+object IO3 extends App {
 
   /*
   We can generalize `TailRec` and `Async` to the type `Free`, which is
@@ -555,6 +572,19 @@ object IO3 {
       })
     }
 
+  val printRead: String => ConsoleIO[Unit] = (s: String) => Console.printLn(s)
+  val readHello = Console.readLn
+  val readHello2 = Console.readLn.flatMap { s =>
+    Console.printLn("Hello " + s)
+  }
+
+  val freeConsole = for {
+    s1 <- readHello
+    _ <- readHello2
+    _ <- printRead("s1 is: ++++  " + s1)
+  } yield ()
+
+  runConsole(freeConsole) // prints "Hello Hello"
   /*
   There is nothing about `Free[Console,A]` that requires we interpret
   `Console` using side effects. Here are two pure ways of interpreting
