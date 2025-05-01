@@ -640,6 +640,21 @@ object IO3 extends App {
   def runConsoleState[A](io: ConsoleIO[A]): ConsoleState[A] =
     runFree[Console, ConsoleState, A](io)(consoleToState)
 
+  val program: ConsoleIO[Unit] = for {
+    _ <- printLn("Enter your name:")
+    name <- readLn
+    _ <- printLn(s"Hello, ${name.getOrElse("stranger")}!")
+  } yield ()
+
+  // Run the program using ConsoleState
+  val initialBuffers = Buffers(in = List("Alice"), out = Vector())
+  val result = runConsoleState(program).run(initialBuffers)
+
+  // Print the result
+  println("Final Buffers:")
+  println(s"Input: ${result._2.in}")
+  println(s"Output: ${result._2.out.mkString("\n")}")
+
   // So `Free[F,A]` is not really an I/O type. The interpreter `runFree` gets
   // to choose how to interpret these `F` requests, and whether to do "real" I/O
   // or simply convert to some pure value!
