@@ -634,11 +634,38 @@ object IO3 extends App {
     new (Console ~> ConsoleReader) { def apply[A](a: Console[A]) = a.toReader }
 
   /* Can interpret these as before to convert our `ConsoleIO` to a pure value that does no I/O! */
-  def runConsoleReader[A](io: ConsoleIO[A]): ConsoleReader[A] =
+  def runConsoleReaderNotStackSafe[A](io: ConsoleIO[A]): ConsoleReader[A] =
     runFree[Console, ConsoleReader, A](io)(consoleToReader)
 
-  def runConsoleState[A](io: ConsoleIO[A]): ConsoleState[A] =
+  @annotation.tailrec
+  def runConsoleReader[A](io: ConsoleIO[A], reader: ConsoleReader[A] = ConsoleReader(identity)): ConsoleReader[A] = {
+    io match {
+      case Return(a) => ConsoleReader(_ => a)
+      case Suspend(r) => r.toReader
+      case FlatMap(sub, f) =>
+        sub match {
+          case Return(a) => runConsoleReader(f(a))
+          case Suspend(r) => runConsoleReader(f(r.toReader.run("")))
+          case FlatMap(x, g) => runConsoleReader(x.flatMap(a => g(a).flatMap(f)))
+        }
+    }
+  }
+
+  def runConsoleStateNotStackSafe[A](io: ConsoleIO[A]): ConsoleState[A] =
     runFree[Console, ConsoleState, A](io)(consoleToState)
+  @annotation.tailrec
+  def runConsoleState[A](io: ConsoleIO[A]): ConsoleState[A] = {
+    io match {
+      case Return(a) => ConsoleState(bufs => (a, bufs))
+      case Suspend(r) => r.toState
+      case FlatMap(sub, f) =>
+        sub match {
+          case Return(a) => runConsoleState(f(a))
+          case Suspend(r) => runConsoleState(f(r.toState.run(Buffers(Nil, Vector()))._1))
+          case FlatMap(x, g) => runConsoleState(x.flatMap(a => g(a).flatMap(f)))
+        }
+    }
+  }
 
   val program: ConsoleIO[Unit] = for {
     _ <- printLn("Enter your name:")
