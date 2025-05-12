@@ -634,22 +634,22 @@ object IO3 extends App {
     new (Console ~> ConsoleReader) { def apply[A](a: Console[A]) = a.toReader }
 
   /* Can interpret these as before to convert our `ConsoleIO` to a pure value that does no I/O! */
-  def runConsoleReaderNotStackSafe[A](io: ConsoleIO[A]): ConsoleReader[A] =
+  def runConsoleReader[A](io: ConsoleIO[A]): ConsoleReader[A] =
     runFree[Console, ConsoleReader, A](io)(consoleToReader)
 
-  @annotation.tailrec
-  def runConsoleReader[A](io: ConsoleIO[A], reader: ConsoleReader[A] = ConsoleReader(identity)): ConsoleReader[A] = {
-    io match {
-      case Return(a) => ConsoleReader(_ => a)
-      case Suspend(r) => r.toReader
-      case FlatMap(sub, f) =>
-        sub match {
-          case Return(a) => runConsoleReader(f(a))
-          case Suspend(r) => runConsoleReader(f(r.toReader.run("")))
-          case FlatMap(x, g) => runConsoleReader(x.flatMap(a => g(a).flatMap(f)))
-        }
-    }
-  }
+//  @annotation.tailrec
+//  def runConsoleReader[A](io: ConsoleIO[A], reader: ConsoleReader[A] = ConsoleReader(identity)): ConsoleReader[A] = {
+//    io match {
+//      case Return(a) => ConsoleReader(_ => a)
+//      case Suspend(r) => r.toReader
+//      case FlatMap(sub, f) =>
+//        sub match {
+//          case Return(a) => runConsoleReader(f(a))
+//          case Suspend(r) => runConsoleReader(f(r.toReader.run("")))
+//          case FlatMap(x, g) => runConsoleReader(x.flatMap(a => g(a).flatMap(f)))
+//        }
+//    }
+//  }
 
   def runConsoleStateNotStackSafe[A](io: ConsoleIO[A]): ConsoleState[A] =
     runFree[Console, ConsoleState, A](io)(consoleToState)
