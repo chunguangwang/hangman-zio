@@ -370,12 +370,12 @@ object IO2c extends App {
   }
 
   def run[A](async: Async[A]): Par[A] = step(async) match {
-    case Return(a)                 => Par.unit(a)
+    case Return(a)  => Par.unit(a)
     case Suspend(r) => r // run the `Par` in the current thread
     case FlatMap(x, f) =>
       x match {
         case Suspend(r) => Par.flatMap(r)(a => run(f(a)))
-        case _                         => sys.error("Impossible, since `step` eliminates these cases")
+        case _          => sys.error("Impossible, since `step` eliminates these cases")
       }
   }
   // The fact that `run` only uses the `unit` and `flatMap` functions of
@@ -526,7 +526,7 @@ object IO3 extends App {
 
   implicit val parMonad = new Monad[Par] {
     def unit[A](a: => A) = Par.unit(a)
-    def flatMap[A, B](a: Par[A])(f: A => Par[B]) = Par.fork(Par.flatMap(a)(f))
+    def flatMap[A, B](a: Par[A])(f: A => Par[B]) = Par.fork(Par.flatMap(a)(b => f(b)))
   }
 
   def runFree[F[_], G[_], A](free: Free[F, A])(t: F ~> G)(implicit x: Monad[G]): G[A] =
@@ -654,18 +654,17 @@ object IO3 extends App {
   def runConsoleStateNotStackSafe[A](io: ConsoleIO[A]): ConsoleState[A] =
     runFree[Console, ConsoleState, A](io)(consoleToState)
   @annotation.tailrec
-  def runConsoleState[A](io: ConsoleIO[A]): ConsoleState[A] = {
+  def runConsoleState[A](io: ConsoleIO[A]): ConsoleState[A] =
     io match {
-      case Return(a) => ConsoleState(bufs => (a, bufs))
+      case Return(a)  => ConsoleState(bufs => (a, bufs))
       case Suspend(r) => r.toState
       case FlatMap(sub, f) =>
         sub match {
-          case Return(a) => runConsoleState(f(a))
-          case Suspend(r) => runConsoleState(f(r.toState.run(Buffers(Nil, Vector()))._1))
+          case Return(a)     => runConsoleState(f(a))
+          case Suspend(r)    => runConsoleState(f(r.toState.run(Buffers(Nil, Vector()))._1))
           case FlatMap(x, g) => runConsoleState(x.flatMap(a => g(a).flatMap(f)))
         }
     }
-  }
 
   val program: ConsoleIO[Unit] = for {
     _ <- printLn("Enter your name:")
