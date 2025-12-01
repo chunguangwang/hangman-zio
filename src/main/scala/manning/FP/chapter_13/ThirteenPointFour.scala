@@ -1,7 +1,7 @@
 package manning.FP.chapter_13
 
 import fpinscala.iomonad.IO3.Console.{printLn, readLn}
-import fpinscala.iomonad.IO3.{runConsole, runConsoleFunction0, runConsoleReader, Console, Free}
+import fpinscala.iomonad.IO3.{~>, consoleToReader, runConsole, runConsoleFunction0, runConsoleReader, runFree, Console, ConsoleReader, Free}
 import manning.FP.chapter_7.Nonblocking.Par
 
 object ThirteenPointFour extends App {
@@ -32,18 +32,20 @@ object ThirteenPointFour extends App {
       }
   }
 
-  val f1: Free[Console, Option[String]] = for {
-    _ <- printLn("I can only interact with the console.")
-    ln <- readLn
-  } yield ln
-  runConsole(f1)
-  runConsoleFunction0(f1)()
+//  val f1: Free[Console, Option[String]] = for {
+//    _ <- printLn("I can only interact with the console.")
+//    ln <- readLn
+//  } yield ln
+//  runConsole(f1)
+//  runConsoleFunction0(f1)()
 //  def flatMap[B](f: A => IO[B]): IO[B] = new IO[B] { def run = f(self.run).run }
 //  def forever[A, B, F[_]](a: F[A]): F[B] = {
 //    lazy val t: F[B] = forever(a)
 //    a flatMap (_ => t) = new IO[B] {def run = {a.run; forever(a)}.run}
 //  }
+  val consoleToReader =
+    new (Console ~> ConsoleReader) { def apply[A](a: Console[A]) = a.toReader }
 
-  val dd = runConsoleReader(readLn)
+  val dd = runFree[Console, ConsoleReader, Option[String]](readLn)(consoleToReader)(ConsoleReader.monad)
   println(dd.run("ddddd"))
 }
