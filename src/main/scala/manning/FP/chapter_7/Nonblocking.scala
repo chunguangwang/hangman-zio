@@ -10,7 +10,7 @@ import language.implicitConversions
 object Nonblocking extends App {
 
   trait Future[+A] {
-    private[chapter_7] def apply(k: A => Unit): Unit
+     def apply(k: A => Unit): Unit
   }
 
   type Par[+A] = ExecutorService => Future[A]
