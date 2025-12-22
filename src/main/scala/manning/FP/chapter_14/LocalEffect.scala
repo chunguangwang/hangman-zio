@@ -22,7 +22,7 @@ object LocalEffect extends App {
     def apply[S, A](a: => A) = {
       lazy val memo = a
       new ST[S, A] {
-        def run(s: S) = (memo, s)
+        def run(s: S): (A, S) = (memo, s)
       }
     }
     def runST[A](st: RunnableST[A]): A =
