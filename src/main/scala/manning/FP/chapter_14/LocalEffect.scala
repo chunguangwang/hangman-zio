@@ -57,6 +57,8 @@ object LocalEffect extends App {
       r2 <- STRef(2)
       x <- r1.read
       y <- r2.read
+      _ <- ST[S, Unit](println(s"x: $x, y: $y"))
+
       x1 <- r1.write(y + 1)
       y1 <- r2.write(x + 1)
       a <- r1.read
